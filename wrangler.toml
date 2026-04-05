@@ -1,6 +1,7 @@
 name = "token-service"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
 
 # 开发环境配置（默认）
 vars = { ENVIRONMENT = "development" }

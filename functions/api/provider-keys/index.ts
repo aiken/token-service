@@ -1,5 +1,6 @@
 /// <reference path="../../types.d.ts" />
 import { getProviderKeys, createProviderKey } from '../../../lib/db';
+import { initDatabase } from '../../../lib/db-init';
 
 export const onRequest: PagesFunction<{ DB: D1Database }> = async (context) => {
   const { request, env } = context;
@@ -16,6 +17,9 @@ export const onRequest: PagesFunction<{ DB: D1Database }> = async (context) => {
   }
 
   try {
+    // Initialize database on first request
+    await initDatabase(env.DB);
+
     if (request.method === 'GET') {
       const url = new URL(request.url);
       const providerId = url.searchParams.get('provider_id');
