@@ -148,20 +148,4 @@ export async function initDatabase(db: D1Database) {
   } catch {
     // users table might not exist yet
   }
-    const providers = [
-      { name: 'Kimi', code: 'kimi', base_url: 'https://api.moonshot.cn', description: '月之暗面大模型' },
-      { name: 'GLM', code: 'glm', base_url: 'https://open.bigmodel.cn', description: '智谱AI大模型' },
-      { name: 'Claude', code: 'claude', base_url: 'https://api.anthropic.com', description: 'Anthropic Claude' },
-      { name: 'Seedance 2.0', code: 'seedance', base_url: 'https://api.seedance.ai', description: 'Seedance视频生成' },
-    ];
-
-    for (const p of providers) {
-      await db.prepare(`
-        INSERT INTO providers (name, code, base_url, description, status) 
-        VALUES (?, ?, ?, ?, 'active')
-      `).bind(p.name, p.code, p.base_url, p.description).run();
-    }
-
-    console.log('Database initialized successfully');
-  }
 }
