@@ -2,41 +2,27 @@ name = "token-service"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# 开发环境配置（默认）
+vars = { ENVIRONMENT = "development" }
+
+[[d1_databases]]
+binding = "DB"
+database_name = "token-service-db-dev"
+database_id = "local"
+
+[[r2_buckets]]
+binding = "INVOICE_BUCKET"
+bucket_name = "token-service-invoices-dev"
+
+# 生产环境
 [env.production]
 vars = { ENVIRONMENT = "production" }
 
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "token-service-db"
-database_id = "your-database-id"
+database_id = "your-production-database-id"
 
 [[env.production.r2_buckets]]
 binding = "INVOICE_BUCKET"
 bucket_name = "token-service-invoices"
-
-# 注意：在 Cloudflare Dashboard 中设置以下敏感变量
-# RESEND_API_KEY
-# JWT_SECRET
-# ENCRYPTION_KEY
-
-# 开发环境配置
-[env.development]
-vars = { ENVIRONMENT = "development" }
-
-[[env.development.d1_databases]]
-binding = "DB"
-database_name = "token-service-db-dev"
-database_id = "your-dev-database-id"
-
-[[env.development.r2_buckets]]
-binding = "INVOICE_BUCKET"
-bucket_name = "token-service-invoices-dev"
-
-# 注意：在 Cloudflare Dashboard 中设置以下敏感变量
-# RESEND_API_KEY
-# JWT_SECRET
-# ENCRYPTION_KEY
-
-# Workers 定时任务配置
-[[triggers]]
-crons = ["0 2 * * *", "0 9 * * *", "0 3 1 * *"]
