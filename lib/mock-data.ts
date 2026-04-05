@@ -347,6 +347,19 @@ export const mockUsers: User[] = [
     created_at: "2024-01-05",
     updated_at: "2024-01-05",
   },
+  {
+    id: 6,
+    email: "120083449@qq.com",
+    name: "孙鹏飞",
+    company_name: "北京墨丘科技有限公司",
+    company_code: "91110108MA006A322A",
+    company_address: "北京市海淀区花园路2号2号楼四层407室",
+    company_phone: "13683600172",
+    status: "active",
+    email_verified: true,
+    created_at: "2024-01-06",
+    updated_at: "2024-01-06",
+  },
 ];
 
 // 用户的账单数据
