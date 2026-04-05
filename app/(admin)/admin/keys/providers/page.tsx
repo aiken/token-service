@@ -33,10 +33,33 @@ const colorOptions = [
   { value: "bg-red-100 text-red-800", label: "红色" },
 ];
 
+// localStorage key for persisting providers
+const PROVIDERS_STORAGE_KEY = "token_service_providers";
+
+// Get providers from localStorage or use initial data
+const getStoredProviders = (): ProviderConfig[] => {
+  if (typeof window === "undefined") return initialProviders;
+  const stored = localStorage.getItem(PROVIDERS_STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return initialProviders;
+    }
+  }
+  return initialProviders;
+};
+
+// Save providers to localStorage
+const saveProviders = (providers: ProviderConfig[]) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(providers));
+};
+
 export default function ProvidersPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [providers, setProviders] = useState<ProviderConfig[]>(initialProviders);
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
 
   // 弹窗状态
   const [showModal, setShowModal] = useState(false);
@@ -56,6 +79,9 @@ export default function ProvidersPage() {
       return;
     }
     setIsAuthorized(true);
+    // Load providers from localStorage
+    const storedProviders = getStoredProviders();
+    setProviders(storedProviders);
   }, []);
 
   if (!isAuthorized) {
@@ -100,13 +126,14 @@ export default function ProvidersPage() {
       return;
     }
 
+    let updatedProviders: ProviderConfig[];
     if (editingProvider) {
       // 编辑
-      setProviders(providers.map((p) =>
+      updatedProviders = providers.map((p) =>
         p.id === editingProvider.id
           ? { ...p, ...formData, updated_at: new Date().toISOString() }
           : p
-      ));
+      );
     } else {
       // 新增
       if (providers.some((p) => p.id === formData.id)) {
@@ -118,8 +145,10 @@ export default function ProvidersPage() {
         status: "active",
         created_at: new Date().toISOString(),
       };
-      setProviders([...providers, newProvider]);
+      updatedProviders = [...providers, newProvider];
     }
+    setProviders(updatedProviders);
+    saveProviders(updatedProviders);
     setShowModal(false);
   };
 
@@ -127,7 +156,9 @@ export default function ProvidersPage() {
   const handleDelete = (providerId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("确定要删除这个提供方吗？相关的 API Keys 也会被删除。")) return;
-    setProviders(providers.filter((p) => p.id !== providerId));
+    const updatedProviders = providers.filter((p) => p.id !== providerId);
+    setProviders(updatedProviders);
+    saveProviders(updatedProviders);
   };
 
   // 计算全局统计

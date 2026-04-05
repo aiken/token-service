@@ -152,7 +152,23 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
 
   // 保存 Provider 编辑
   const handleSaveProvider = () => {
-    setProvider({ ...provider, ...editForm });
+    const updatedProvider = { ...provider, ...editForm };
+    setProvider(updatedProvider);
+    
+    // 更新 localStorage 中的 providers
+    const PROVIDERS_STORAGE_KEY = "token_service_providers";
+    const stored = localStorage.getItem(PROVIDERS_STORAGE_KEY);
+    if (stored) {
+      try {
+        const providers = JSON.parse(stored);
+        const updatedProviders = providers.map((p: ProviderConfig) =>
+          p.id === providerId ? { ...p, ...editForm } : p
+        );
+        localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(updatedProviders));
+      } catch {
+        // ignore parse error
+      }
+    }
     setIsEditing(false);
   };
 

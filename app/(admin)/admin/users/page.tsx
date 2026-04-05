@@ -13,6 +13,7 @@ type TabType = "overview" | "apikeys" | "bills";
 
 // localStorage key for persisting provider keys (shared with provider detail page)
 const STORAGE_KEY = "token_service_provider_keys";
+const USERS_STORAGE_KEY = "token_service_users";
 
 // Get keys from localStorage or use initial data
 const getStoredKeys = (): ProviderKey[] => {
@@ -32,6 +33,26 @@ const getStoredKeys = (): ProviderKey[] => {
 const saveKeys = (keys: ProviderKey[]) => {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+};
+
+// Get users from localStorage or use initial data
+const getStoredUsers = (): User[] => {
+  if (typeof window === "undefined") return mockUsers;
+  const stored = localStorage.getItem(USERS_STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return mockUsers;
+    }
+  }
+  return mockUsers;
+};
+
+// Save users to localStorage
+const saveUsers = (users: User[]) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 };
 
 // 格式化用量显示
@@ -60,7 +81,7 @@ function getKeyStatusDisplay(status: ProviderKey["status"]) {
 
 export default function AdminUsersPage() {
   // 状态管理
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [providerKeys, setProviderKeys] = useState<ProviderKey[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -95,9 +116,11 @@ export default function AdminUsersPage() {
     }
     setIsAuthorized(true);
     
-    // Load provider keys from localStorage
+    // Load provider keys and users from localStorage
     const storedKeys = getStoredKeys();
     setProviderKeys(storedKeys);
+    const storedUsers = getStoredUsers();
+    setUsers(storedUsers);
   }, []);
 
   // 过滤用户
@@ -127,15 +150,17 @@ export default function AdminUsersPage() {
 
   // 切换用户状态
   const toggleUserStatus = (userId: number) => {
-    setUsers((prev) =>
-      prev.map((user) => {
+    setUsers((prev) => {
+      const updated = prev.map((user) => {
         if (user.id === userId) {
-          const newStatus = user.status === "active" ? "suspended" : "active";
+          const newStatus: User["status"] = user.status === "active" ? "suspended" : "active";
           return { ...user, status: newStatus };
         }
         return user;
-      })
-    );
+      });
+      saveUsers(updated);
+      return updated;
+    });
   };
 
   // 查看用户详情
@@ -307,7 +332,9 @@ export default function AdminUsersPage() {
       updated_at: now,
     };
 
-    setUsers((prev) => [...prev, newUser]);
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
     closeAddModal();
   };
 
