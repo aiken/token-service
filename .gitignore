@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# wrangler
+.wrangler/tmp/
+
+# build output (for Cloudflare Pages, dist is built fresh each time)
+/dist/_next/static/chunks/*.js
+/dist/_next/static/chunks/*.css
+/dist/_next/static/media/*.woff2
+/dist/_next/static/media/*.ico
+/dist/_next/static/*/_buildManifest.js
+/dist/_next/static/*/_ssgManifest.js
+/dist/_next/static/*/_clientMiddlewareManifest.js
+/dist/**/*.txt
+/dist/__next.*
