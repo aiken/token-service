@@ -14,12 +14,15 @@ database_id = "your-database-id"
 binding = "INVOICE_BUCKET"
 bucket_name = "token-service-invoices"
 
-[env.production.vars]
-RESEND_API_KEY = ""
-JWT_SECRET = ""
-ENCRYPTION_KEY = ""
+# 注意：在 Cloudflare Dashboard 中设置以下敏感变量
+# RESEND_API_KEY
+# JWT_SECRET
+# ENCRYPTION_KEY
 
 # 开发环境配置
+[env.development]
+vars = { ENVIRONMENT = "development" }
+
 [[env.development.d1_databases]]
 binding = "DB"
 database_name = "token-service-db-dev"
@@ -29,10 +32,10 @@ database_id = "your-dev-database-id"
 binding = "INVOICE_BUCKET"
 bucket_name = "token-service-invoices-dev"
 
-[env.development.vars]
-RESEND_API_KEY = ""
-JWT_SECRET = "your-dev-secret-key"
-ENCRYPTION_KEY = "your-dev-encryption-key"
+# 注意：在 Cloudflare Dashboard 中设置以下敏感变量
+# RESEND_API_KEY
+# JWT_SECRET
+# ENCRYPTION_KEY
 
 # Workers 定时任务配置
 [[triggers]]
