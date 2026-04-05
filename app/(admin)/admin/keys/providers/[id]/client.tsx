@@ -40,6 +40,7 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
 
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [provider, setProvider] = useState<ProviderConfig | null>(null);
+  const [providerNumericId, setProviderNumericId] = useState<number | null>(null);
   const [keys, setKeys] = useState<ProviderKey[]>([]);
   const [activeTab, setActiveTab] = useState("pool");
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,33 +76,56 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
     const loadData = async () => {
       setIsLoading(true);
       
-      // 加载 Provider
-      const providerResult = await providersApi.getById(parseInt(providerId));
-      if (providerResult.success && providerResult.data) {
-        const p = providerResult.data as ProviderConfig;
-        setProvider(p);
-        setEditForm({
-          name: p.name,
-          description: p.description || "",
-          base_url: p.base_url || "",
-        });
-      } else {
-        // Fallback to mock data for development
-        const foundProvider = mockProviders.find((pr) => pr.id === providerId);
-        if (foundProvider) {
+      // 加载所有 Providers
+      const providersResult = await providersApi.getAll();
+      let foundProvider: ProviderConfig | null = null;
+      let numericId: number | null = null;
+      
+      if (providersResult.success && providersResult.data) {
+        const providers = providersResult.data as Array<{ id: number; code: string; name: string; description?: string; base_url?: string; status?: string; created_at?: string }>;
+        const p = providers.find((pr) => pr.code === providerId);
+        if (p) {
+          // 转换为 ProviderConfig 格式
+          foundProvider = {
+            id: p.code,
+            name: p.name,
+            color: "bg-blue-100 text-blue-800",
+            description: p.description,
+            base_url: p.base_url,
+            status: (p.status as 'active' | 'inactive') || 'active',
+            created_at: p.created_at || new Date().toISOString(),
+          };
+          numericId = p.id;
+          setProviderNumericId(p.id);
           setProvider(foundProvider);
           setEditForm({
-            name: foundProvider.name,
-            description: foundProvider.description || "",
-            base_url: foundProvider.base_url || "",
+            name: p.name,
+            description: p.description || "",
+            base_url: p.base_url || "",
           });
         }
       }
       
-      // 加载 Keys
-      const keysResult = await providerKeysApi.getAll(parseInt(providerId));
-      if (keysResult.success && keysResult.data) {
-        setKeys(keysResult.data as ProviderKey[]);
+      // 如果 API 没找到，尝试 mock 数据
+      if (!foundProvider) {
+        const mockProvider = mockProviders.find((pr) => pr.id === providerId);
+        if (mockProvider) {
+          foundProvider = mockProvider;
+          setProvider(mockProvider);
+          setEditForm({
+            name: mockProvider.name,
+            description: mockProvider.description || "",
+            base_url: mockProvider.base_url || "",
+          });
+        }
+      }
+      
+      // 加载 Keys (使用 provider 数字 id)
+      if (numericId) {
+        const keysResult = await providerKeysApi.getAll(numericId);
+        if (keysResult.success && keysResult.data) {
+          setKeys(keysResult.data as ProviderKey[]);
+        }
       }
       
       setIsLoading(false);
@@ -150,8 +174,8 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
 
   // 保存 Provider 编辑
   const handleSaveProvider = async () => {
-    if (!provider) return;
-    const result = await providersApi.update(parseInt(providerId), editForm);
+    if (!provider || !providerNumericId) return;
+    const result = await providersApi.update(providerNumericId, editForm);
     if (result.success) {
       const updatedProvider = { ...provider, ...editForm };
       setProvider(updatedProvider);
@@ -174,8 +198,9 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
       key_mask: `sk-****${keyValue.slice(-4)}`,
     }));
 
+    if (!providerNumericId) return;
     const result = await providerKeysApi.create({
-      provider_id: parseInt(providerId),
+      provider_id: providerNumericId,
       keys: keysData,
     });
 
