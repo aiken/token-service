@@ -14,7 +14,7 @@
     "db:migrate:dev": "wrangler d1 execute token-service-db-dev --local --file=./migrations/001_init.sql",
     "db:migrate:all": "wrangler d1 execute token-service-db-dev --local --file=./migrations/001_init.sql && wrangler d1 execute token-service-db-dev --local --file=./migrations/002_add_providers.sql",
     "db:migrate:prod": "wrangler d1 execute token-service-db --file=./migrations/001_init.sql && wrangler d1 execute token-service-db --file=./migrations/002_add_providers.sql",
-    "dev:cf": "wrangler pages dev --compatibility-date=2024-01-01 --d1=DB"
+    "dev:cf": "npm run build && wrangler pages dev dist --compatibility-date=2024-01-01 --d1=DB"
   },
   "dependencies": {
     "@radix-ui/react-tabs": "^1.1.13",
