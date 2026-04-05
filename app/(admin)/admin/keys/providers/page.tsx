@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getProviderStats } from "@/lib/mock-data";
-import { providersApi } from "@/lib/api-client";
-import type { ProviderConfig } from "@/types";
+import { providersApi, providerKeysApi } from "@/lib/api-client";
+import type { ProviderConfig, ProviderKey } from "@/types";
 import {
   Database,
   CheckCircle2,
@@ -38,6 +37,8 @@ export default function ProvidersPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [providerKeys, setProviderKeys] = useState<ProviderKey[]>([]);
+  const [providerIdMap, setProviderIdMap] = useState<Record<string, number>>({});  // code -> numeric id
   const [loading, setLoading] = useState(true);
 
   // 弹窗状态
@@ -60,13 +61,25 @@ export default function ProvidersPage() {
     }
     setIsAuthorized(true);
     
-    // Load providers from API
-    const loadProviders = async () => {
+    // Load providers and keys from API
+    const loadData = async () => {
       setLoading(true);
-      const result = await providersApi.getAll();
-      if (result.success && result.data) {
+      const [providersResult, keysResult] = await Promise.all([
+        providersApi.getAll(),
+        providerKeysApi.getAll(),
+      ]);
+      
+      if (providersResult.success && providersResult.data) {
         // Convert API data to ProviderConfig format (using code as id)
-        const apiProviders = result.data as Array<{ id: number; code: string; name: string; description?: string; base_url?: string; status?: string; created_at?: string }>;
+        const apiProviders = providersResult.data as Array<{ id: number; code: string; name: string; description?: string; base_url?: string; status?: string; created_at?: string }>;
+        
+        // Build code -> id mapping
+        const idMap: Record<string, number> = {};
+        apiProviders.forEach(p => {
+          idMap[p.code] = p.id;
+        });
+        setProviderIdMap(idMap);
+        
         const formattedProviders: ProviderConfig[] = apiProviders.map(p => ({
           id: p.code,  // Use code as the URL identifier
           name: p.name,
@@ -78,9 +91,14 @@ export default function ProvidersPage() {
         }));
         setProviders(formattedProviders);
       }
+      
+      if (keysResult.success && keysResult.data) {
+        setProviderKeys(keysResult.data as ProviderKey[]);
+      }
+      
       setLoading(false);
     };
-    loadProviders();
+    loadData();
   }, []);
 
   if (!isAuthorized || loading) {
@@ -177,9 +195,10 @@ export default function ProvidersPage() {
     }
   };
 
-  // 计算全局统计
-  const totalKeys = providers.reduce((sum, p) => sum + getProviderStats(p.id).total, 0);
-  const totalAllocated = providers.reduce((sum, p) => sum + getProviderStats(p.id).allocated, 0);
+  // 计算真实的全局统计
+  const totalKeys = providerKeys.length;
+  const totalAllocated = providerKeys.filter(k => k.status === 'allocated').length;
+  const totalAvailable = providerKeys.filter(k => k.status === 'available').length;
 
   return (
     <div className="space-y-6">
@@ -233,9 +252,7 @@ export default function ProvidersPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-600">可用 Keys</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {providers.reduce((sum, p) => sum + getProviderStats(p.id).available, 0)}
-                </p>
+                <p className="text-2xl font-bold text-slate-900">{totalAvailable}</p>
               </div>
             </div>
           </CardContent>
@@ -258,7 +275,18 @@ export default function ProvidersPage() {
       {/* 提供方卡片网格 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {providers.map((provider) => {
-          const stats = getProviderStats(provider.id);
+          // 计算该提供方的真实统计
+          const numericId = providerIdMap[provider.id];
+          const providerKeyList = numericId 
+            ? providerKeys.filter(k => k.provider_id === numericId.toString())
+            : [];
+          const stats = {
+            total: providerKeyList.length,
+            available: providerKeyList.filter(k => k.status === 'available').length,
+            allocated: providerKeyList.filter(k => k.status === 'allocated').length,
+            disabled: providerKeyList.filter(k => k.status === 'disabled').length,
+            exhausted: 0,
+          };
           return (
             <Card
               key={provider.id}
