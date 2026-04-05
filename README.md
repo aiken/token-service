@@ -1,36 +1,107 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Token Service - AI API用量管理平台
 
-## Getting Started
+一站式AI API用量监控和账单管理平台，帮助您管理Kimi、GLM、Claude等多个AI平台的API Key和用量统计。
 
-First, run the development server:
+## 功能特性
+
+- 📧 邮箱验证码登录
+- 🔑 API Key管理（查看、添加、删除）
+- 📊 用量统计（日/周/月维度）
+- 💰 月度账单查询
+- 📄 发票下载
+- 📧 每日用量报告邮件
+
+## 技术栈
+
+- **框架**: Next.js 14 + React 19
+- **样式**: Tailwind CSS 4
+- **UI组件**: shadcn/ui
+- **托管**: Cloudflare Pages
+- **数据库**: Cloudflare D1 (SQLite)
+- **存储**: Cloudflare R2
+- **定时任务**: Cloudflare Workers
+- **邮件服务**: Resend
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+npm install
+```
+
+### 2. 配置环境变量
+
+复制 `.env.example` 为 `.env.local` 并填写您的配置：
+
+```bash
+cp .env.example .env.local
+```
+
+### 3. 初始化数据库
+
+```bash
+npm run db:migrate
+```
+
+### 4. 本地开发
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. 部署到Cloudflare Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run pages:deploy
+```
 
-## Learn More
+## 项目结构
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/
+├── (auth)/           # 认证路由组
+│   └── login/        # 登录页面
+├── (dashboard)/      # 仪表盘路由组
+│   └── dashboard/
+│       ├── page.tsx      # 仪表盘首页
+│       ├── keys/         # API Key管理
+│       ├── usage/        # 用量统计
+│       ├── bills/        # 账单
+│       ├── invoices/     # 发票
+│       └── settings/     # 设置
+├── api/              # API路由
+├── globals.css       # 全局样式
+└── layout.tsx        # 根布局
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+components/
+└── ui/               # UI组件
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+lib/
+└── utils.ts          # 工具函数
 
-## Deploy on Vercel
+types/
+└── index.ts          # TypeScript类型定义
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+migrations/
+└── 001_init.sql      # 数据库迁移脚本
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+workers/              # Cloudflare Workers (定时任务)
+```
+
+## 开发计划
+
+- [x] 基础框架搭建
+- [x] 用户认证（邮箱登录）
+- [x] API Key管理
+- [x] 用量统计展示
+- [ ] 数据同步Worker
+- [ ] 每日报告邮件
+- [ ] 月度账单生成
+- [ ] 发票上传和下载
+
+## 许可证
+
+MIT
