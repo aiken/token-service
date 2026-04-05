@@ -25,6 +25,8 @@ import {
   X,
   Eye,
   EyeOff,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface ProviderDetailClientProps {
@@ -71,6 +73,8 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
 
   // 控制哪些 Key 显示明文
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
+  // 跟踪已复制的 Key（用于显示复制成功提示）
+  const [copiedKeys, setCopiedKeys] = useState<Set<number>>(new Set());
 
   // 编辑 Provider
   const [editForm, setEditForm] = useState({
@@ -164,6 +168,7 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
       id: Date.now() + index,
       provider_id: providerId,
       key_mask: `sk-****${keyValue.slice(-4)}`,
+      key_value: keyValue,
       status: "available",
       current_usage: 0,
       created_at: new Date().toISOString(),
@@ -222,6 +227,26 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
       }
       return newSet;
     });
+  };
+
+  // 复制 Key 到剪贴板
+  const copyKeyToClipboard = async (key: ProviderKey) => {
+    const textToCopy = key.key_value || key.key_mask;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedKeys((prev) => new Set(prev).add(key.id));
+      // 2秒后清除复制成功状态
+      setTimeout(() => {
+        setCopiedKeys((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(key.id);
+          return newSet;
+        });
+      }, 2000);
+    } catch (err) {
+      console.error("复制失败:", err);
+      alert("复制失败，请手动复制");
+    }
   };
 
   // 状态徽章
@@ -384,7 +409,10 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
                       <td className="py-3 px-4 text-slate-600">#{key.id}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-slate-900">
+                          <span 
+                            className="font-mono text-slate-900 max-w-[200px] truncate"
+                            title={visibleKeys.has(key.id) && key.key_value ? key.key_value : key.key_mask}
+                          >
                             {visibleKeys.has(key.id) && key.key_value
                               ? key.key_value
                               : key.key_mask}
@@ -400,6 +428,19 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
                               <EyeOff className="w-4 h-4 text-slate-500" />
                             ) : (
                               <Eye className="w-4 h-4 text-slate-500" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => copyKeyToClipboard(key)}
+                            title="复制"
+                          >
+                            {copiedKeys.has(key.id) ? (
+                              <Check className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-slate-500" />
                             )}
                           </Button>
                         </div>
@@ -470,7 +511,10 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
                       <tr key={key.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-slate-900">
+                            <span 
+                              className="font-mono text-slate-900 max-w-[200px] truncate"
+                              title={visibleKeys.has(key.id) && key.key_value ? key.key_value : key.key_mask}
+                            >
                               {visibleKeys.has(key.id) && key.key_value
                                 ? key.key_value
                                 : key.key_mask}
@@ -486,6 +530,19 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
                                 <EyeOff className="w-4 h-4 text-slate-500" />
                               ) : (
                                 <Eye className="w-4 h-4 text-slate-500" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => copyKeyToClipboard(key)}
+                              title="复制"
+                            >
+                              {copiedKeys.has(key.id) ? (
+                                <Check className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <Copy className="w-4 h-4 text-slate-500" />
                               )}
                             </Button>
                           </div>
