@@ -65,7 +65,18 @@ export default function ProvidersPage() {
       setLoading(true);
       const result = await providersApi.getAll();
       if (result.success && result.data) {
-        setProviders(result.data as ProviderConfig[]);
+        // Convert API data to ProviderConfig format (using code as id)
+        const apiProviders = result.data as Array<{ id: number; code: string; name: string; description?: string; base_url?: string; status?: string; created_at?: string }>;
+        const formattedProviders: ProviderConfig[] = apiProviders.map(p => ({
+          id: p.code,  // Use code as the URL identifier
+          name: p.name,
+          color: "bg-blue-100 text-blue-800",  // Default color
+          description: p.description,
+          base_url: p.base_url,
+          status: (p.status as 'active' | 'inactive') || 'active',
+          created_at: p.created_at || new Date().toISOString(),
+        }));
+        setProviders(formattedProviders);
       }
       setLoading(false);
     };
