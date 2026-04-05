@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockProviders as initialProviders, getProviderStats } from "@/lib/mock-data";
+import { getProviderStats } from "@/lib/mock-data";
+import { providersApi } from "@/lib/api-client";
 import type { ProviderConfig } from "@/types";
 import {
   Database,
@@ -33,33 +34,11 @@ const colorOptions = [
   { value: "bg-red-100 text-red-800", label: "红色" },
 ];
 
-// localStorage key for persisting providers
-const PROVIDERS_STORAGE_KEY = "token_service_providers";
-
-// Get providers from localStorage or use initial data
-const getStoredProviders = (): ProviderConfig[] => {
-  if (typeof window === "undefined") return initialProviders;
-  const stored = localStorage.getItem(PROVIDERS_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return initialProviders;
-    }
-  }
-  return initialProviders;
-};
-
-// Save providers to localStorage
-const saveProviders = (providers: ProviderConfig[]) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(providers));
-};
-
 export default function ProvidersPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // 弹窗状态
   const [showModal, setShowModal] = useState(false);
@@ -72,6 +51,7 @@ export default function ProvidersPage() {
     color: "bg-blue-100 text-blue-800",
   });
 
+  // Load providers from API
   useEffect(() => {
     const adminToken = localStorage.getItem("admin_token");
     if (!adminToken) {
@@ -79,12 +59,20 @@ export default function ProvidersPage() {
       return;
     }
     setIsAuthorized(true);
-    // Load providers from localStorage
-    const storedProviders = getStoredProviders();
-    setProviders(storedProviders);
+    
+    // Load providers from API
+    const loadProviders = async () => {
+      setLoading(true);
+      const result = await providersApi.getAll();
+      if (result.success && result.data) {
+        setProviders(result.data as ProviderConfig[]);
+      }
+      setLoading(false);
+    };
+    loadProviders();
   }, []);
 
-  if (!isAuthorized) {
+  if (!isAuthorized || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-slate-600">加载中...</div>
@@ -120,45 +108,62 @@ export default function ProvidersPage() {
   };
 
   // 保存 Provider
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.id || !formData.name) {
       alert("请填写提供方 ID 和名称");
       return;
     }
 
-    let updatedProviders: ProviderConfig[];
     if (editingProvider) {
       // 编辑
-      updatedProviders = providers.map((p) =>
-        p.id === editingProvider.id
-          ? { ...p, ...formData, updated_at: new Date().toISOString() }
-          : p
-      );
+      const result = await providersApi.update(parseInt(editingProvider.id), {
+        name: formData.name,
+        code: formData.id,
+        base_url: formData.base_url,
+        description: formData.description,
+      });
+      if (result.success) {
+        setProviders(providers.map((p) =>
+          p.id === editingProvider.id
+            ? { ...p, ...formData, updated_at: new Date().toISOString() }
+            : p
+        ));
+        setShowModal(false);
+      } else {
+        alert("保存失败: " + (result.error || "未知错误"));
+      }
     } else {
       // 新增
       if (providers.some((p) => p.id === formData.id)) {
         alert("提供方 ID 已存在");
         return;
       }
-      const newProvider: ProviderConfig = {
-        ...formData,
-        status: "active",
-        created_at: new Date().toISOString(),
-      };
-      updatedProviders = [...providers, newProvider];
+      const result = await providersApi.create({
+        name: formData.name,
+        code: formData.id,
+        base_url: formData.base_url,
+        description: formData.description,
+      });
+      if (result.success && result.data) {
+        const newProvider = result.data as ProviderConfig;
+        setProviders([...providers, newProvider]);
+        setShowModal(false);
+      } else {
+        alert("创建失败: " + (result.error || "未知错误"));
+      }
     }
-    setProviders(updatedProviders);
-    saveProviders(updatedProviders);
-    setShowModal(false);
   };
 
   // 删除 Provider
-  const handleDelete = (providerId: string, e: React.MouseEvent) => {
+  const handleDelete = async (providerId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("确定要删除这个提供方吗？相关的 API Keys 也会被删除。")) return;
-    const updatedProviders = providers.filter((p) => p.id !== providerId);
-    setProviders(updatedProviders);
-    saveProviders(updatedProviders);
+    const result = await providersApi.delete(parseInt(providerId));
+    if (result.success) {
+      setProviders(providers.filter((p) => p.id !== providerId));
+    } else {
+      alert("删除失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 计算全局统计

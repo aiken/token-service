@@ -6,54 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { mockUsers, mockProviders, mockProviderKeys, mockUserBills } from "@/lib/mock-data";
+import { mockProviders, mockUserBills } from "@/lib/mock-data";
+import { usersApi, providerKeysApi } from "@/lib/api-client";
 import type { ProviderKey, User, Bill } from "@/types";
 
 type TabType = "overview" | "apikeys" | "bills";
 
-// localStorage key for persisting provider keys (shared with provider detail page)
-const STORAGE_KEY = "token_service_provider_keys";
-const USERS_STORAGE_KEY = "token_service_users";
 
-// Get keys from localStorage or use initial data
-const getStoredKeys = (): ProviderKey[] => {
-  if (typeof window === "undefined") return mockProviderKeys;
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return mockProviderKeys;
-    }
-  }
-  return mockProviderKeys;
-};
-
-// Save keys to localStorage
-const saveKeys = (keys: ProviderKey[]) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
-};
-
-// Get users from localStorage or use initial data
-const getStoredUsers = (): User[] => {
-  if (typeof window === "undefined") return mockUsers;
-  const stored = localStorage.getItem(USERS_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return mockUsers;
-    }
-  }
-  return mockUsers;
-};
-
-// Save users to localStorage
-const saveUsers = (users: User[]) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-};
 
 // 格式化用量显示
 function formatUsage(bytes: number): string {
@@ -83,6 +42,7 @@ export default function AdminUsersPage() {
   // 状态管理
   const [users, setUsers] = useState<User[]>([]);
   const [providerKeys, setProviderKeys] = useState<ProviderKey[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -108,6 +68,7 @@ export default function AdminUsersPage() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // 从 API 加载数据
   useEffect(() => {
     const adminToken = localStorage.getItem("admin_token");
     if (!adminToken) {
@@ -116,11 +77,19 @@ export default function AdminUsersPage() {
     }
     setIsAuthorized(true);
     
-    // Load provider keys and users from localStorage
-    const storedKeys = getStoredKeys();
-    setProviderKeys(storedKeys);
-    const storedUsers = getStoredUsers();
-    setUsers(storedUsers);
+    const loadData = async () => {
+      setLoading(true);
+      const usersResult = await usersApi.getAll();
+      if (usersResult.success && usersResult.data) {
+        setUsers(usersResult.data as User[]);
+      }
+      const keysResult = await providerKeysApi.getAll();
+      if (keysResult.success && keysResult.data) {
+        setProviderKeys(keysResult.data as ProviderKey[]);
+      }
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
   // 过滤用户
@@ -149,18 +118,16 @@ export default function AdminUsersPage() {
   };
 
   // 切换用户状态
-  const toggleUserStatus = (userId: number) => {
-    setUsers((prev) => {
-      const updated = prev.map((user) => {
-        if (user.id === userId) {
-          const newStatus: User["status"] = user.status === "active" ? "suspended" : "active";
-          return { ...user, status: newStatus };
-        }
-        return user;
-      });
-      saveUsers(updated);
-      return updated;
-    });
+  const toggleUserStatus = async (userId: number) => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    const newStatus = user.status === "active" ? "suspended" : "active";
+    const result = await usersApi.update(userId, { status: newStatus });
+    if (result.success) {
+      setUsers(users.map((u) => u.id === userId ? { ...u, status: newStatus } : u));
+    } else {
+      alert("操作失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 查看用户详情
@@ -181,56 +148,39 @@ export default function AdminUsersPage() {
   };
 
   // 分配Key给用户
-  const handleAllocateKey = () => {
+  const handleAllocateKey = async () => {
     if (!selectedUser || !selectedKeyId) return;
 
-    const now = new Date().toISOString();
-    
-    setProviderKeys((prev) => {
-      const updated = prev.map((key) => {
-        if (key.id === selectedKeyId) {
-          return {
-            ...key,
-            status: "allocated" as const,
-            allocated_to: selectedUser.id,
-            allocated_to_email: selectedUser.email,
-            allocated_at: now,
-          };
-        }
-        return key;
-      });
-      // 保存到 localStorage
-      saveKeys(updated);
-      return updated;
-    });
-
-    // 重置选择
-    setSelectedKeyId(null);
-    setSelectedProviderId("");
-    setShowAllocateModal(false);
+    const result = await providerKeysApi.allocate(selectedKeyId, selectedUser.id);
+    if (result.success) {
+      // Refresh keys
+      const keysResult = await providerKeysApi.getAll();
+      if (keysResult.success && keysResult.data) {
+        setProviderKeys(keysResult.data as ProviderKey[]);
+      }
+      setSelectedKeyId(null);
+      setSelectedProviderId("");
+      setShowAllocateModal(false);
+    } else {
+      alert("分配失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 回收Key
-  const handleReclaimKey = (keyId: number) => {
+  const handleReclaimKey = async (keyId: number) => {
+    if (!selectedUser) return;
     if (!confirm("确定要回收这个API Key吗？回收后该用户将无法继续使用。")) return;
 
-    setProviderKeys((prev) => {
-      const updated = prev.map((key) => {
-        if (key.id === keyId) {
-          return {
-            ...key,
-            status: "available" as const,
-            allocated_to: undefined,
-            allocated_to_email: undefined,
-            allocated_at: undefined,
-          };
-        }
-        return key;
-      });
-      // 保存到 localStorage
-      saveKeys(updated);
-      return updated;
-    });
+    const result = await providerKeysApi.reclaim(keyId, selectedUser.id);
+    if (result.success) {
+      // Refresh keys
+      const keysResult = await providerKeysApi.getAll();
+      if (keysResult.success && keysResult.data) {
+        setProviderKeys(keysResult.data as ProviderKey[]);
+      }
+    } else {
+      alert("回收失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 打开分配模态框
@@ -310,35 +260,24 @@ export default function AdminUsersPage() {
   };
 
   // 处理添加用户
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!validateForm()) return;
 
-    const maxId = Math.max(...users.map((u) => u.id), 0);
-    const now = new Date().toISOString();
-
-    const newUser: User = {
-      id: maxId + 1,
+    const result = await usersApi.create({
       email: newUserForm.email.trim(),
       name: newUserForm.name.trim(),
-      company_name: newUserForm.company_name.trim(),
-      company_code: newUserForm.company_code.trim().toUpperCase(),
-      company_address: newUserForm.company_address.trim() || undefined,
-      company_phone: newUserForm.company_phone.trim() || undefined,
-      bank_name: newUserForm.bank_name.trim() || undefined,
-      bank_account: newUserForm.bank_account.trim() || undefined,
-      status: "active",
-      email_verified: false,
-      created_at: now,
-      updated_at: now,
-    };
+    });
 
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    saveUsers(updatedUsers);
-    closeAddModal();
+    if (result.success && result.data) {
+      const newUser = result.data as User;
+      setUsers([...users, newUser]);
+      closeAddModal();
+    } else {
+      alert("创建失败: " + (result.error || "未知错误"));
+    }
   };
 
-  if (!isAuthorized) {
+  if (!isAuthorized || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-slate-500">加载中...</div>

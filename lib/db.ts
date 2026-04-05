@@ -1,5 +1,195 @@
 // D1 数据库操作封装
 
+// ============ Providers ============
+export async function getProviders(db: D1Database) {
+  const result = await db
+    .prepare('SELECT * FROM providers ORDER BY created_at DESC')
+    .all();
+  return result.results;
+}
+
+export async function getProviderById(db: D1Database, id: number) {
+  const result = await db
+    .prepare('SELECT * FROM providers WHERE id = ?')
+    .bind(id)
+    .first();
+  return result;
+}
+
+export async function createProvider(db: D1Database, data: {
+  name: string;
+  code: string;
+  base_url?: string;
+  description?: string;
+}) {
+  const result = await db
+    .prepare('INSERT INTO providers (name, code, base_url, description) VALUES (?, ?, ?, ?) RETURNING *')
+    .bind(data.name, data.code, data.base_url || null, data.description || null)
+    .first();
+  return result;
+}
+
+export async function updateProvider(db: D1Database, id: number, data: {
+  name?: string;
+  code?: string;
+  base_url?: string;
+  status?: 'active' | 'inactive';
+  description?: string;
+}) {
+  const sets: string[] = [];
+  const values: (string | null)[] = [];
+  
+  if (data.name !== undefined) { sets.push('name = ?'); values.push(data.name); }
+  if (data.code !== undefined) { sets.push('code = ?'); values.push(data.code); }
+  if (data.base_url !== undefined) { sets.push('base_url = ?'); values.push(data.base_url); }
+  if (data.status !== undefined) { sets.push('status = ?'); values.push(data.status); }
+  if (data.description !== undefined) { sets.push('description = ?'); values.push(data.description); }
+  sets.push('updated_at = datetime("now")');
+  values.push(id.toString());
+  
+  const result = await db
+    .prepare(`UPDATE providers SET ${sets.join(', ')} WHERE id = ? RETURNING *`)
+    .bind(...values)
+    .first();
+  return result;
+}
+
+export async function deleteProvider(db: D1Database, id: number) {
+  const result = await db
+    .prepare('DELETE FROM providers WHERE id = ?')
+    .bind(id)
+    .run();
+  return result.success;
+}
+
+// ============ Provider Keys ============
+export async function getProviderKeys(db: D1Database, providerId?: number) {
+  let stmt;
+  if (providerId) {
+    stmt = db.prepare('SELECT * FROM provider_keys WHERE provider_id = ? ORDER BY created_at DESC').bind(providerId);
+  } else {
+    stmt = db.prepare('SELECT * FROM provider_keys ORDER BY created_at DESC');
+  }
+  const result = await stmt.all();
+  return result.results;
+}
+
+export async function getProviderKeyById(db: D1Database, id: number) {
+  const result = await db
+    .prepare('SELECT * FROM provider_keys WHERE id = ?')
+    .bind(id)
+    .first();
+  return result;
+}
+
+export async function createProviderKey(db: D1Database, data: {
+  provider_id: number;
+  key_value: string;
+  key_mask: string;
+}) {
+  const result = await db
+    .prepare('INSERT INTO provider_keys (provider_id, key_value, key_mask) VALUES (?, ?, ?) RETURNING *')
+    .bind(data.provider_id, data.key_value, data.key_mask)
+    .first();
+  return result;
+}
+
+export async function updateProviderKeyStatus(db: D1Database, id: number, status: 'available' | 'allocated' | 'disabled') {
+  const result = await db
+    .prepare('UPDATE provider_keys SET status = ? WHERE id = ? RETURNING *')
+    .bind(status, id)
+    .first();
+  return result;
+}
+
+export async function deleteProviderKey(db: D1Database, id: number) {
+  const result = await db
+    .prepare('DELETE FROM provider_keys WHERE id = ?')
+    .bind(id)
+    .run();
+  return result.success;
+}
+
+export async function allocateKeyToUser(db: D1Database, keyId: number, userId: number) {
+  // Start transaction
+  await db.prepare('BEGIN TRANSACTION').run();
+  try {
+    // Update key status
+    await db.prepare('UPDATE provider_keys SET status = "allocated", allocated_to = ? WHERE id = ?')
+      .bind(userId, keyId).run();
+    // Create user_key mapping
+    await db.prepare('INSERT INTO user_provider_keys (user_id, provider_key_id) VALUES (?, ?)')
+      .bind(userId, keyId).run();
+    await db.prepare('COMMIT').run();
+    return true;
+  } catch (e) {
+    await db.prepare('ROLLBACK').run();
+    throw e;
+  }
+}
+
+export async function reclaimKeyFromUser(db: D1Database, keyId: number, userId: number) {
+  // Start transaction
+  await db.prepare('BEGIN TRANSACTION').run();
+  try {
+    // Update key status
+    await db.prepare('UPDATE provider_keys SET status = "available", allocated_to = NULL WHERE id = ?')
+      .bind(keyId).run();
+    // Delete user_key mapping
+    await db.prepare('DELETE FROM user_provider_keys WHERE user_id = ? AND provider_key_id = ?')
+      .bind(userId, keyId).run();
+    await db.prepare('COMMIT').run();
+    return true;
+  } catch (e) {
+    await db.prepare('ROLLBACK').run();
+    throw e;
+  }
+}
+
+export async function getKeysByUserId(db: D1Database, userId: number) {
+  const result = await db
+    .prepare(`
+      SELECT pk.*, p.name as provider_name 
+      FROM provider_keys pk
+      JOIN providers p ON pk.provider_id = p.id
+      WHERE pk.allocated_to = ?
+      ORDER BY pk.created_at DESC
+    `)
+    .bind(userId)
+    .all();
+  return result.results;
+}
+
+// ============ Users ============
+export async function getUsers(db: D1Database) {
+  const result = await db
+    .prepare('SELECT id, email, name, status, email_verified, created_at FROM users ORDER BY created_at DESC')
+    .all();
+  return result.results;
+}
+
+export async function updateUser(db: D1Database, id: number, data: {
+  name?: string;
+  email?: string;
+  status?: 'active' | 'inactive';
+}) {
+  const sets: string[] = [];
+  const values: (string | null)[] = [];
+  
+  if (data.name !== undefined) { sets.push('name = ?'); values.push(data.name); }
+  if (data.email !== undefined) { sets.push('email = ?'); values.push(data.email); }
+  if (data.status !== undefined) { sets.push('status = ?'); values.push(data.status); }
+  values.push(id.toString());
+  
+  const result = await db
+    .prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ? RETURNING id, email, name, status, email_verified, created_at`)
+    .bind(...values)
+    .first();
+  return result;
+}
+
+// ============ Original functions below ============
+
 // 用户相关操作
 export async function getUserByEmail(db: D1Database, email: string): Promise<Record<string, unknown> | null> {
   const result = await db
@@ -45,7 +235,6 @@ export async function verifyCode(db: D1Database, email: string, code: string): P
     .first() as Record<string, unknown> | null;
   
   if (result) {
-    // 标记验证码为已使用
     await db
       .prepare('UPDATE verification_codes SET used = TRUE WHERE id = ?')
       .bind(result.id)
@@ -132,7 +321,6 @@ export async function getUsageByDateRange(db: D1Database, userId: number, startD
 }
 
 export async function getUsageSummary(db: D1Database, userId: number) {
-  // 今日用量
   const today = new Date().toISOString().split('T')[0];
   const todayResult = await db
     .prepare(`
@@ -144,7 +332,6 @@ export async function getUsageSummary(db: D1Database, userId: number) {
     .bind(userId, today)
     .first() as { tokens: number; cost: number } | null;
 
-  // 本月用量
   const monthStart = today.substring(0, 7) + '-01';
   const monthResult = await db
     .prepare(`
@@ -156,7 +343,6 @@ export async function getUsageSummary(db: D1Database, userId: number) {
     .bind(userId, monthStart)
     .first() as { tokens: number; cost: number } | null;
 
-  // 总用量
   const totalResult = await db
     .prepare(`
       SELECT COALESCE(SUM(total_tokens), 0) as tokens, COALESCE(SUM(cost_cny), 0) as cost

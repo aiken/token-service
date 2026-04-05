@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   mockProviders,
-  mockProviderKeys as initialKeys,
 } from "@/lib/mock-data";
+import { providerKeysApi, providersApi } from "@/lib/api-client";
 import type { ProviderConfig, ProviderKey } from "@/types";
 import {
   ArrowLeft,
@@ -33,28 +33,7 @@ interface ProviderDetailClientProps {
   providerId: string;
 }
 
-// localStorage key for persisting provider keys
-const STORAGE_KEY = "token_service_provider_keys";
 
-// Get keys from localStorage or use initial data
-const getStoredKeys = (): ProviderKey[] => {
-  if (typeof window === "undefined") return initialKeys;
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return initialKeys;
-    }
-  }
-  return initialKeys;
-};
-
-// Save keys to localStorage
-const saveKeys = (keys: ProviderKey[]) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
-};
 
 export default function ProviderDetailClient({ providerId }: ProviderDetailClientProps) {
   const router = useRouter();
@@ -92,23 +71,42 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
     }
     setIsAuthorized(true);
 
-    // 查找 Provider
-    const foundProvider = mockProviders.find((pr) => pr.id === providerId);
-    if (foundProvider) {
-      setProvider(foundProvider);
-      setEditForm({
-        name: foundProvider.name,
-        description: foundProvider.description || "",
-        base_url: foundProvider.base_url || "",
-      });
-    }
-
-    // 查找 Keys (从 localStorage 或初始数据)
-    const storedKeys = getStoredKeys();
-    const providerKeys = storedKeys.filter((k) => k.provider_id === providerId);
-    setKeys(providerKeys);
-
-    setIsLoading(false);
+    // 从 API 加载 Provider 和 Keys
+    const loadData = async () => {
+      setIsLoading(true);
+      
+      // 加载 Provider
+      const providerResult = await providersApi.getById(parseInt(providerId));
+      if (providerResult.success && providerResult.data) {
+        const p = providerResult.data as ProviderConfig;
+        setProvider(p);
+        setEditForm({
+          name: p.name,
+          description: p.description || "",
+          base_url: p.base_url || "",
+        });
+      } else {
+        // Fallback to mock data for development
+        const foundProvider = mockProviders.find((pr) => pr.id === providerId);
+        if (foundProvider) {
+          setProvider(foundProvider);
+          setEditForm({
+            name: foundProvider.name,
+            description: foundProvider.description || "",
+            base_url: foundProvider.base_url || "",
+          });
+        }
+      }
+      
+      // 加载 Keys
+      const keysResult = await providerKeysApi.getAll(parseInt(providerId));
+      if (keysResult.success && keysResult.data) {
+        setKeys(keysResult.data as ProviderKey[]);
+      }
+      
+      setIsLoading(false);
+    };
+    loadData();
   }, [providerId]);
 
   if (!isAuthorized || isLoading) {
@@ -151,85 +149,66 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
   );
 
   // 保存 Provider 编辑
-  const handleSaveProvider = () => {
-    const updatedProvider = { ...provider, ...editForm };
-    setProvider(updatedProvider);
-    
-    // 更新 localStorage 中的 providers
-    const PROVIDERS_STORAGE_KEY = "token_service_providers";
-    const stored = localStorage.getItem(PROVIDERS_STORAGE_KEY);
-    if (stored) {
-      try {
-        const providers = JSON.parse(stored);
-        const updatedProviders = providers.map((p: ProviderConfig) =>
-          p.id === providerId ? { ...p, ...editForm } : p
-        );
-        localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(updatedProviders));
-      } catch {
-        // ignore parse error
-      }
+  const handleSaveProvider = async () => {
+    if (!provider) return;
+    const result = await providersApi.update(parseInt(providerId), editForm);
+    if (result.success) {
+      const updatedProvider = { ...provider, ...editForm };
+      setProvider(updatedProvider);
+      setIsEditing(false);
+    } else {
+      alert("保存失败: " + (result.error || "未知错误"));
     }
-    setIsEditing(false);
   };
 
   // 添加 Keys
-  const handleAddKeys = () => {
+  const handleAddKeys = async () => {
     if (!newKeysInput.trim()) return;
     const keyLines = newKeysInput
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-    const newKeys: ProviderKey[] = keyLines.map((keyValue, index) => ({
-      id: Date.now() + index,
-      provider_id: providerId,
-      key_mask: `sk-****${keyValue.slice(-4)}`,
+    const keysData = keyLines.map((keyValue) => ({
       key_value: keyValue,
-      status: "available",
-      current_usage: 0,
-      created_at: new Date().toISOString(),
+      key_mask: `sk-****${keyValue.slice(-4)}`,
     }));
 
-    const updatedKeys = [...keys, ...newKeys];
-    setKeys(updatedKeys);
-    // 更新 localStorage
-    const allKeys = getStoredKeys();
-    saveKeys([...allKeys, ...newKeys]);
-    setNewKeysInput("");
-    setShowAddModal(false);
+    const result = await providerKeysApi.create({
+      provider_id: parseInt(providerId),
+      keys: keysData,
+    });
+
+    if (result.success && result.data) {
+      const createdKeys = result.data as ProviderKey[];
+      setKeys([...keys, ...createdKeys]);
+      setNewKeysInput("");
+      setShowAddModal(false);
+    } else {
+      alert("添加失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 切换 Key 状态
-  const toggleKeyStatus = (keyId: number) => {
-    const updatedKeys = keys.map((k) => {
-      if (k.id === keyId) {
-        const newStatus: ProviderKey["status"] = k.status === "disabled" ? "available" : "disabled";
-        return { ...k, status: newStatus };
-      }
-      return k;
-    });
-    setKeys(updatedKeys);
-    // 更新 localStorage
-    const allKeys = getStoredKeys();
-    const newAllKeys = allKeys.map((k) => {
-      if (k.id === keyId) {
-        const newStatus: ProviderKey["status"] = k.status === "disabled" ? "available" : "disabled";
-        return { ...k, status: newStatus };
-      }
-      return k;
-    });
-    saveKeys(newAllKeys);
+  const toggleKeyStatus = async (keyId: number) => {
+    const result = await providerKeysApi.toggleStatus(keyId);
+    if (result.success && result.data) {
+      const updatedKey = result.data as ProviderKey;
+      setKeys(keys.map((k) => (k.id === keyId ? updatedKey : k)));
+    } else {
+      alert("操作失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 删除 Key
-  const handleDelete = (keyId: number) => {
+  const handleDelete = async (keyId: number) => {
     if (!confirm("确定要永久删除这个 API Key 吗？")) return;
-    const updatedKeys = keys.filter((k) => k.id !== keyId);
-    setKeys(updatedKeys);
-    // 更新 localStorage
-    const allKeys = getStoredKeys();
-    const newAllKeys = allKeys.filter((k) => k.id !== keyId);
-    saveKeys(newAllKeys);
+    const result = await providerKeysApi.delete(keyId);
+    if (result.success) {
+      setKeys(keys.filter((k) => k.id !== keyId));
+    } else {
+      alert("删除失败: " + (result.error || "未知错误"));
+    }
   };
 
   // 切换 Key 显示/隐藏
