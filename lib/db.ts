@@ -163,7 +163,7 @@ export async function getKeysByUserId(db: D1Database, userId: number) {
 // ============ Users ============
 export async function getUsers(db: D1Database) {
   const result = await db
-    .prepare('SELECT id, email, name, status, email_verified, created_at FROM users ORDER BY created_at DESC')
+    .prepare('SELECT id, email, name, status, email_verified, created_at, company_name, company_code, company_address, company_phone, bank_name, bank_account FROM users ORDER BY created_at DESC')
     .all();
   return result.results;
 }
@@ -172,6 +172,12 @@ export async function updateUser(db: D1Database, id: number, data: {
   name?: string;
   email?: string;
   status?: 'active' | 'inactive';
+  company_name?: string;
+  company_code?: string;
+  company_address?: string;
+  company_phone?: string;
+  bank_name?: string;
+  bank_account?: string;
 }) {
   const sets: string[] = [];
   const values: (string | null)[] = [];
@@ -179,10 +185,16 @@ export async function updateUser(db: D1Database, id: number, data: {
   if (data.name !== undefined) { sets.push('name = ?'); values.push(data.name); }
   if (data.email !== undefined) { sets.push('email = ?'); values.push(data.email); }
   if (data.status !== undefined) { sets.push('status = ?'); values.push(data.status); }
+  if (data.company_name !== undefined) { sets.push('company_name = ?'); values.push(data.company_name); }
+  if (data.company_code !== undefined) { sets.push('company_code = ?'); values.push(data.company_code); }
+  if (data.company_address !== undefined) { sets.push('company_address = ?'); values.push(data.company_address); }
+  if (data.company_phone !== undefined) { sets.push('company_phone = ?'); values.push(data.company_phone); }
+  if (data.bank_name !== undefined) { sets.push('bank_name = ?'); values.push(data.bank_name); }
+  if (data.bank_account !== undefined) { sets.push('bank_account = ?'); values.push(data.bank_account); }
   values.push(id.toString());
   
   const result = await db
-    .prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ? RETURNING id, email, name, status, email_verified, created_at`)
+    .prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ? RETURNING id, email, name, status, email_verified, created_at, company_name, company_code, company_address, company_phone, bank_name, bank_account`)
     .bind(...values)
     .first();
   return result;
