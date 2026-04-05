@@ -77,9 +77,9 @@ export async function initDatabase(db: D1Database) {
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_user_provider_keys_key ON user_provider_keys(provider_key_id)').run();
 
     // Check if providers exist
-    const providerCount = await db.prepare('SELECT COUNT(*) as count FROM providers').first();
+    const providerCount = await db.prepare('SELECT COUNT(*) as count FROM providers').first() as { count: number } | null;
     
-    if (!providerCount || (providerCount.count as number) === 0) {
+    if (!providerCount || providerCount.count === 0) {
       // Insert default providers
       const providers = [
         { name: 'Kimi', code: 'kimi', base_url: 'https://api.moonshot.cn', description: '月之暗面大模型' },
@@ -97,9 +97,9 @@ export async function initDatabase(db: D1Database) {
     }
 
     // Check if demo user exists
-    const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first();
+    const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first() as { count: number } | null;
     
-    if (!userCount || (userCount.count as number) === 0) {
+    if (!userCount || userCount.count === 0) {
       // Insert demo user
       await db.prepare(`
         INSERT INTO users (email, name, company_name, company_code, company_address, company_phone, status, email_verified) 
@@ -113,8 +113,8 @@ export async function initDatabase(db: D1Database) {
 
   // Database already exists, check if providers need to be added
   try {
-    const providerCount = await db.prepare('SELECT COUNT(*) as count FROM providers').first();
-    if (!providerCount || (providerCount.count as number) === 0) {
+    const providerCount = await db.prepare('SELECT COUNT(*) as count FROM providers').first() as { count: number } | null;
+    if (!providerCount || providerCount.count === 0) {
       // Insert default providers
       const providers = [
         { name: 'Kimi', code: 'kimi', base_url: 'https://api.moonshot.cn', description: '月之暗面大模型' },
@@ -137,8 +137,8 @@ export async function initDatabase(db: D1Database) {
 
   // Check if demo user needs to be added
   try {
-    const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first();
-    if (!userCount || (userCount.count as number) === 0) {
+    const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first() as { count: number } | null;
+    if (!userCount || userCount.count === 0) {
       await db.prepare(`
         INSERT INTO users (email, name, company_name, company_code, company_address, company_phone, status, email_verified) 
         VALUES ('120083449@qq.com', '孙鹏飞', '北京墨丘科技有限公司', '91110108MA006A322A', '北京市海淀区花园路2号2号楼四层407室', '13683600172', 'active', 1)
