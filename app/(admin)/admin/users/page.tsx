@@ -11,6 +11,29 @@ import type { ProviderKey, User, Bill } from "@/types";
 
 type TabType = "overview" | "apikeys" | "bills";
 
+// localStorage key for persisting provider keys (shared with provider detail page)
+const STORAGE_KEY = "token_service_provider_keys";
+
+// Get keys from localStorage or use initial data
+const getStoredKeys = (): ProviderKey[] => {
+  if (typeof window === "undefined") return mockProviderKeys;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return mockProviderKeys;
+    }
+  }
+  return mockProviderKeys;
+};
+
+// Save keys to localStorage
+const saveKeys = (keys: ProviderKey[]) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+};
+
 // 格式化用量显示
 function formatUsage(bytes: number): string {
   if (bytes === 0) return "0";
@@ -38,7 +61,7 @@ function getKeyStatusDisplay(status: ProviderKey["status"]) {
 export default function AdminUsersPage() {
   // 状态管理
   const [users, setUsers] = useState<User[]>(mockUsers);
-  const [providerKeys, setProviderKeys] = useState<ProviderKey[]>(mockProviderKeys);
+  const [providerKeys, setProviderKeys] = useState<ProviderKey[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -71,6 +94,10 @@ export default function AdminUsersPage() {
       return;
     }
     setIsAuthorized(true);
+    
+    // Load provider keys from localStorage
+    const storedKeys = getStoredKeys();
+    setProviderKeys(storedKeys);
   }, []);
 
   // 过滤用户
@@ -134,8 +161,8 @@ export default function AdminUsersPage() {
 
     const now = new Date().toISOString();
     
-    setProviderKeys((prev) =>
-      prev.map((key) => {
+    setProviderKeys((prev) => {
+      const updated = prev.map((key) => {
         if (key.id === selectedKeyId) {
           return {
             ...key,
@@ -146,8 +173,11 @@ export default function AdminUsersPage() {
           };
         }
         return key;
-      })
-    );
+      });
+      // 保存到 localStorage
+      saveKeys(updated);
+      return updated;
+    });
 
     // 重置选择
     setSelectedKeyId(null);
@@ -159,8 +189,8 @@ export default function AdminUsersPage() {
   const handleReclaimKey = (keyId: number) => {
     if (!confirm("确定要回收这个API Key吗？回收后该用户将无法继续使用。")) return;
 
-    setProviderKeys((prev) =>
-      prev.map((key) => {
+    setProviderKeys((prev) => {
+      const updated = prev.map((key) => {
         if (key.id === keyId) {
           return {
             ...key,
@@ -171,8 +201,11 @@ export default function AdminUsersPage() {
           };
         }
         return key;
-      })
-    );
+      });
+      // 保存到 localStorage
+      saveKeys(updated);
+      return updated;
+    });
   };
 
   // 打开分配模态框
