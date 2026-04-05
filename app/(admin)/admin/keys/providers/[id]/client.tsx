@@ -29,6 +29,29 @@ interface ProviderDetailClientProps {
   providerId: string;
 }
 
+// localStorage key for persisting provider keys
+const STORAGE_KEY = "token_service_provider_keys";
+
+// Get keys from localStorage or use initial data
+const getStoredKeys = (): ProviderKey[] => {
+  if (typeof window === "undefined") return initialKeys;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return initialKeys;
+    }
+  }
+  return initialKeys;
+};
+
+// Save keys to localStorage
+const saveKeys = (keys: ProviderKey[]) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+};
+
 export default function ProviderDetailClient({ providerId }: ProviderDetailClientProps) {
   const router = useRouter();
 
@@ -71,8 +94,9 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
       });
     }
 
-    // 查找 Keys
-    const providerKeys = initialKeys.filter((k) => k.provider_id === providerId);
+    // 查找 Keys (从 localStorage 或初始数据)
+    const storedKeys = getStoredKeys();
+    const providerKeys = storedKeys.filter((k) => k.provider_id === providerId);
     setKeys(providerKeys);
 
     setIsLoading(false);
@@ -140,28 +164,46 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
       created_at: new Date().toISOString(),
     }));
 
-    setKeys([...keys, ...newKeys]);
+    const updatedKeys = [...keys, ...newKeys];
+    setKeys(updatedKeys);
+    // 更新 localStorage
+    const allKeys = getStoredKeys();
+    saveKeys([...allKeys, ...newKeys]);
     setNewKeysInput("");
     setShowAddModal(false);
   };
 
   // 切换 Key 状态
   const toggleKeyStatus = (keyId: number) => {
-    setKeys(
-      keys.map((k) => {
-        if (k.id === keyId) {
-          const newStatus = k.status === "disabled" ? "available" : "disabled";
-          return { ...k, status: newStatus };
-        }
-        return k;
-      })
-    );
+    const updatedKeys = keys.map((k) => {
+      if (k.id === keyId) {
+        const newStatus: ProviderKey["status"] = k.status === "disabled" ? "available" : "disabled";
+        return { ...k, status: newStatus };
+      }
+      return k;
+    });
+    setKeys(updatedKeys);
+    // 更新 localStorage
+    const allKeys = getStoredKeys();
+    const newAllKeys = allKeys.map((k) => {
+      if (k.id === keyId) {
+        const newStatus: ProviderKey["status"] = k.status === "disabled" ? "available" : "disabled";
+        return { ...k, status: newStatus };
+      }
+      return k;
+    });
+    saveKeys(newAllKeys);
   };
 
   // 删除 Key
   const handleDelete = (keyId: number) => {
     if (!confirm("确定要永久删除这个 API Key 吗？")) return;
-    setKeys(keys.filter((k) => k.id !== keyId));
+    const updatedKeys = keys.filter((k) => k.id !== keyId);
+    setKeys(updatedKeys);
+    // 更新 localStorage
+    const allKeys = getStoredKeys();
+    const newAllKeys = allKeys.filter((k) => k.id !== keyId);
+    saveKeys(newAllKeys);
   };
 
   // 状态徽章
