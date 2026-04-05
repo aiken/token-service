@@ -76,13 +76,78 @@ export async function initDatabase(db: D1Database) {
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_user_provider_keys_user ON user_provider_keys(user_id)').run();
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_user_provider_keys_key ON user_provider_keys(provider_key_id)').run();
 
-    // Insert demo user
-    await db.prepare(`
-      INSERT INTO users (email, name, company_name, company_code, company_address, company_phone, status, email_verified) 
-      VALUES ('120083449@qq.com', '孙鹏飞', '北京墨丘科技有限公司', '91110108MA006A322A', '北京市海淀区花园路2号2号楼四层407室', '13683600172', 'active', 1)
-    `).run();
+    // Check if providers exist
+    const providerCount = await db.prepare('SELECT COUNT(*) as count FROM providers').first();
+    
+    if (!providerCount || (providerCount.count as number) === 0) {
+      // Insert default providers
+      const providers = [
+        { name: 'Kimi', code: 'kimi', base_url: 'https://api.moonshot.cn', description: '月之暗面大模型' },
+        { name: 'GLM', code: 'glm', base_url: 'https://open.bigmodel.cn', description: '智谱AI大模型' },
+        { name: 'Claude', code: 'claude', base_url: 'https://api.anthropic.com', description: 'Anthropic Claude' },
+        { name: 'Seedance 2.0', code: 'seedance', base_url: 'https://api.seedance.ai', description: 'Seedance视频生成' },
+      ];
 
-    // Insert default providers
+      for (const p of providers) {
+        await db.prepare(`
+          INSERT INTO providers (name, code, base_url, description, status) 
+          VALUES (?, ?, ?, ?, 'active')
+        `).bind(p.name, p.code, p.base_url, p.description).run();
+      }
+    }
+
+    // Check if demo user exists
+    const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first();
+    
+    if (!userCount || (userCount.count as number) === 0) {
+      // Insert demo user
+      await db.prepare(`
+        INSERT INTO users (email, name, company_name, company_code, company_address, company_phone, status, email_verified) 
+        VALUES ('120083449@qq.com', '孙鹏飞', '北京墨丘科技有限公司', '91110108MA006A322A', '北京市海淀区花园路2号2号楼四层407室', '13683600172', 'active', 1)
+      `).run();
+    }
+
+    console.log('Database initialized successfully');
+    return;
+  }
+
+  // Database already exists, check if providers need to be added
+  try {
+    const providerCount = await db.prepare('SELECT COUNT(*) as count FROM providers').first();
+    if (!providerCount || (providerCount.count as number) === 0) {
+      // Insert default providers
+      const providers = [
+        { name: 'Kimi', code: 'kimi', base_url: 'https://api.moonshot.cn', description: '月之暗面大模型' },
+        { name: 'GLM', code: 'glm', base_url: 'https://open.bigmodel.cn', description: '智谱AI大模型' },
+        { name: 'Claude', code: 'claude', base_url: 'https://api.anthropic.com', description: 'Anthropic Claude' },
+        { name: 'Seedance 2.0', code: 'seedance', base_url: 'https://api.seedance.ai', description: 'Seedance视频生成' },
+      ];
+
+      for (const p of providers) {
+        await db.prepare(`
+          INSERT INTO providers (name, code, base_url, description, status) 
+          VALUES (?, ?, ?, ?, 'active')
+        `).bind(p.name, p.code, p.base_url, p.description).run();
+      }
+      console.log('Default providers added');
+    }
+  } catch {
+    // providers table might not exist yet
+  }
+
+  // Check if demo user needs to be added
+  try {
+    const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').first();
+    if (!userCount || (userCount.count as number) === 0) {
+      await db.prepare(`
+        INSERT INTO users (email, name, company_name, company_code, company_address, company_phone, status, email_verified) 
+        VALUES ('120083449@qq.com', '孙鹏飞', '北京墨丘科技有限公司', '91110108MA006A322A', '北京市海淀区花园路2号2号楼四层407室', '13683600172', 'active', 1)
+      `).run();
+      console.log('Demo user added');
+    }
+  } catch {
+    // users table might not exist yet
+  }
     const providers = [
       { name: 'Kimi', code: 'kimi', base_url: 'https://api.moonshot.cn', description: '月之暗面大模型' },
       { name: 'GLM', code: 'glm', base_url: 'https://open.bigmodel.cn', description: '智谱AI大模型' },
