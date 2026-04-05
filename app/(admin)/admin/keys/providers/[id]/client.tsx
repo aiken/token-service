@@ -23,6 +23,8 @@ import {
   Edit2,
   Save,
   X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 interface ProviderDetailClientProps {
@@ -66,6 +68,9 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
   // 添加 Key 弹窗
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeysInput, setNewKeysInput] = useState("");
+
+  // 控制哪些 Key 显示明文
+  const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
 
   // 编辑 Provider
   const [editForm, setEditForm] = useState({
@@ -204,6 +209,19 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
     const allKeys = getStoredKeys();
     const newAllKeys = allKeys.filter((k) => k.id !== keyId);
     saveKeys(newAllKeys);
+  };
+
+  // 切换 Key 显示/隐藏
+  const toggleKeyVisibility = (keyId: number) => {
+    setVisibleKeys((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(keyId)) {
+        newSet.delete(keyId);
+      } else {
+        newSet.add(keyId);
+      }
+      return newSet;
+    });
   };
 
   // 状态徽章
@@ -364,7 +382,28 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
                   {filteredKeys.map((key) => (
                     <tr key={key.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-3 px-4 text-slate-600">#{key.id}</td>
-                      <td className="py-3 px-4 font-mono text-slate-900">{key.key_mask}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-slate-900">
+                            {visibleKeys.has(key.id) && key.key_value
+                              ? key.key_value
+                              : key.key_mask}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => toggleKeyVisibility(key.id)}
+                            title={visibleKeys.has(key.id) ? "隐藏" : "显示"}
+                          >
+                            {visibleKeys.has(key.id) ? (
+                              <EyeOff className="w-4 h-4 text-slate-500" />
+                            ) : (
+                              <Eye className="w-4 h-4 text-slate-500" />
+                            )}
+                          </Button>
+                        </div>
+                      </td>
                       <td className="py-3 px-4">{getStatusBadge(key.status)}</td>
                       <td className="py-3 px-4">
                         {key.allocated_to_email ? (
@@ -429,7 +468,28 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
                     .filter((k) => k.status === "allocated")
                     .map((key) => (
                       <tr key={key.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-3 px-4 font-mono text-slate-900">{key.key_mask}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-slate-900">
+                              {visibleKeys.has(key.id) && key.key_value
+                                ? key.key_value
+                                : key.key_mask}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => toggleKeyVisibility(key.id)}
+                              title={visibleKeys.has(key.id) ? "隐藏" : "显示"}
+                            >
+                              {visibleKeys.has(key.id) ? (
+                                <EyeOff className="w-4 h-4 text-slate-500" />
+                              ) : (
+                                <Eye className="w-4 h-4 text-slate-500" />
+                              )}
+                            </Button>
+                          </div>
+                        </td>
                         <td className="py-3 px-4 text-slate-900">{key.allocated_to_email}</td>
                         <td className="py-3 px-4 text-slate-600">
                           {key.allocated_at
