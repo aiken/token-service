@@ -6,9 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { mockProviders, mockUserBills } from "@/lib/mock-data";
-import { usersApi, providerKeysApi } from "@/lib/api-client";
-import type { ProviderKey, User, Bill } from "@/types";
+import { usersApi, providerKeysApi, providersApi } from "@/lib/api-client";
+import type { ProviderKey, User, Bill, ProviderConfig } from "@/types";
 
 type TabType = "overview" | "apikeys" | "bills";
 
@@ -79,13 +78,31 @@ export default function AdminUsersPage() {
     
     const loadData = async () => {
       setLoading(true);
-      const usersResult = await usersApi.getAll();
+      const [usersResult, keysResult, providersResult] = await Promise.all([
+        usersApi.getAll(),
+        providerKeysApi.getAll(),
+        providersApi.getAll(),
+      ]);
+      
       if (usersResult.success && usersResult.data) {
         setUsers(usersResult.data as User[]);
       }
-      const keysResult = await providerKeysApi.getAll();
       if (keysResult.success && keysResult.data) {
         setProviderKeys(keysResult.data as ProviderKey[]);
+      }
+      if (providersResult.success && providersResult.data) {
+        // Convert to ProviderConfig format
+        const apiProviders = providersResult.data as Array<{ id: number; code: string; name: string; description?: string; base_url?: string; status?: string; created_at?: string }>;
+        const formattedProviders: ProviderConfig[] = apiProviders.map(p => ({
+          id: p.code,
+          name: p.name,
+          color: "bg-blue-100 text-blue-800",
+          description: p.description,
+          base_url: p.base_url,
+          status: (p.status as 'active' | 'inactive') || 'active',
+          created_at: p.created_at || new Date().toISOString(),
+        }));
+        setProviders(formattedProviders);
       }
       setLoading(false);
     };
@@ -112,9 +129,9 @@ export default function AdminUsersPage() {
     return getUserAllocatedKeys(userId).length;
   };
 
-  // 获取用户的账单
+  // 获取用户的账单（暂时返回空数组，后续添加账单 API）
   const getUserBills = (userId: number): Bill[] => {
-    return mockUserBills[userId] || [];
+    return [];
   };
 
   // 切换用户状态
@@ -140,10 +157,16 @@ export default function AdminUsersPage() {
     setSelectedKeyId(null);
   };
 
+  // 状态：服务商列表
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+
   // 获取指定Provider的可用Keys
-  const getAvailableKeysForProvider = (providerId: string): ProviderKey[] => {
+  const getAvailableKeysForProvider = (providerCode: string): ProviderKey[] => {
+    const provider = providers.find(p => p.id === providerCode);
+    if (!provider) return [];
+    // 需要找到对应的数字 ID
     return providerKeys.filter(
-      (key) => key.provider_id === providerId && key.status === "available"
+      (key) => key.status === "available"
     );
   };
 
@@ -597,7 +620,7 @@ export default function AdminUsersPage() {
                             选择服务商
                           </label>
                           <div className="flex flex-wrap gap-2">
-                            {mockProviders.map((provider) => (
+                            {providers.map((provider) => (
                               <button
                                 key={provider.id}
                                 onClick={() => {
@@ -686,7 +709,7 @@ export default function AdminUsersPage() {
                     {getUserAllocatedKeys(selectedUser.id).length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {getUserAllocatedKeys(selectedUser.id).map((key) => {
-                          const provider = mockProviders.find(
+                          const provider = providers.find(
                             (p) => p.id === key.provider_id
                           );
                           const statusDisplay = getKeyStatusDisplay(key.status);

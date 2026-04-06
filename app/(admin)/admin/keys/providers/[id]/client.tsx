@@ -6,9 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  mockProviders,
-} from "@/lib/mock-data";
 import { providerKeysApi, providersApi } from "@/lib/api-client";
 import type { ProviderConfig, ProviderKey } from "@/types";
 import {
@@ -106,20 +103,6 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
         }
       }
       
-      // 如果 API 没找到，尝试 mock 数据
-      if (!foundProvider) {
-        const mockProvider = mockProviders.find((pr) => pr.id === providerId);
-        if (mockProvider) {
-          foundProvider = mockProvider;
-          setProvider(mockProvider);
-          setEditForm({
-            name: mockProvider.name,
-            description: mockProvider.description || "",
-            base_url: mockProvider.base_url || "",
-          });
-        }
-      }
-      
       // 加载 Keys (使用 provider 数字 id)
       if (numericId) {
         const keysResult = await providerKeysApi.getAll(numericId);
@@ -146,9 +129,7 @@ export default function ProviderDetailClient({ providerId }: ProviderDetailClien
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <p className="text-slate-600 mb-4">未找到提供方: {providerId}</p>
-          <p className="text-sm text-slate-500 mb-4">
-            可用的提供方: {mockProviders.map(p => p.id).join(", ")}
-          </p>
+
           <Button onClick={() => router.push("/admin/keys/providers")}>
             返回提供方列表
           </Button>

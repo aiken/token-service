@@ -1,4 +1,3 @@
-import { mockProviders } from "@/lib/mock-data";
 import ProviderDetailClient from "./client";
 
 // 为静态导出生成参数 (使用 provider code 如 'kimi', 'glm')

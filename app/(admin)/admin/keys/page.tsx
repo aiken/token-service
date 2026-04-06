@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockProviders, getProviderStats } from "@/lib/mock-data";
-import type { ProviderConfig } from "@/types";
 
 export default function KeysIndexPage() {
   const router = useRouter();

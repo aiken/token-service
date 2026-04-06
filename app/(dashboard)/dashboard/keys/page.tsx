@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockProviders, mockUserApiKeys, mockProviderKeys } from "@/lib/mock-data";
-import type { UserApiKey, ProviderConfig, ProviderKey } from "@/types";
+import { providersApi, providerKeysApi } from "@/lib/api-client";
+import type { ProviderConfig, ProviderKey } from "@/types";
 import {
   Database,
   CheckCircle2,
@@ -13,20 +13,17 @@ import {
   EyeOff,
 } from "lucide-react";
 
-// 扩展 UserApiKey 类型以包含关联数据
-interface ExtendedUserApiKey extends UserApiKey {
+// 扩展 ProviderKey 类型以包含 provider 信息
+interface ExtendedKey extends ProviderKey {
   provider?: ProviderConfig;
-  provider_key?: ProviderKey;
 }
 
 export default function UserKeysPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [userKeys, setUserKeys] = useState<ExtendedUserApiKey[]>([]);
+  const [userKeys, setUserKeys] = useState<ExtendedKey[]>([]);
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [revealedKey, setRevealedKey] = useState<number | null>(null);
   const [filterProvider, setFilterProvider] = useState<string>("all");
-
-  // 当前用户ID（实际应从 JWT 或上下文获取）
-  const currentUserId = 1;
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -35,25 +32,52 @@ export default function UserKeysPage() {
       return;
     }
 
-    // 加载用户的分配 Keys
-    const allocatedKeys = mockUserApiKeys
-      .filter((k) => k.user_id === currentUserId)
-      .map((userKey) => ({
-        ...userKey,
-        provider: mockProviders.find((p) => p.id === userKey.provider_id),
-        provider_key: mockProviderKeys.find(
-          (pk) => pk.id === userKey.provider_key_id
-        ),
-      }));
-
-    setUserKeys(allocatedKeys);
-    setIsLoading(false);
+    // 从 API 加载数据
+    const loadData = async () => {
+      const [providersResult, keysResult] = await Promise.all([
+        providersApi.getAll(),
+        providerKeysApi.getAll(),
+      ]);
+      
+      if (providersResult.success && providersResult.data) {
+        // Convert to ProviderConfig format
+        const apiProviders = providersResult.data as Array<{ id: number; code: string; name: string; description?: string; base_url?: string; status?: string; created_at?: string }>;
+        const formattedProviders: ProviderConfig[] = apiProviders.map(p => ({
+          id: p.code,
+          name: p.name,
+          color: "bg-blue-100 text-blue-800",
+          description: p.description,
+          base_url: p.base_url,
+          status: (p.status as 'active' | 'inactive') || 'active',
+          created_at: p.created_at || new Date().toISOString(),
+        }));
+        setProviders(formattedProviders);
+        
+        // 过滤出分配给当前用户的 keys
+        if (keysResult.success && keysResult.data) {
+          const allKeys = keysResult.data as ProviderKey[];
+          // 获取当前用户 ID（从 localStorage 或 API）
+          const userStr = localStorage.getItem("user");
+          const userId = userStr ? JSON.parse(userStr).id : null;
+          
+          const allocatedKeys = allKeys
+            .filter(k => k.allocated_to === userId)
+            .map(k => ({
+              ...k,
+              provider: formattedProviders.find(p => p.id === k.provider_id),
+            }));
+          setUserKeys(allocatedKeys);
+        }
+      }
+      setIsLoading(false);
+    };
+    loadData();
   }, []);
 
   // 按平台分组统计
-  const keysByProvider = mockProviders.map((p) => ({
+  const keysByProvider = providers.map((p) => ({
     ...p,
-    count: userKeys.filter((k) => k.provider_id === p.id && k.status === "active").length,
+    count: userKeys.filter((k) => k.provider_id === p.id && k.status === "allocated").length,
   }));
 
   // 过滤显示的 keys
@@ -61,18 +85,6 @@ export default function UserKeysPage() {
     if (filterProvider === "all") return true;
     return key.provider_id === filterProvider;
   });
-
-  // 切换 Key 启用状态
-  const handleToggleStatus = (keyId: number) => {
-    setUserKeys(
-      userKeys.map((key) => {
-        if (key.id === keyId) {
-          return { ...key, status: key.status === "active" ? "inactive" : "active" };
-        }
-        return key;
-      })
-    );
-  };
 
   if (isLoading) {
     return (
@@ -114,9 +126,9 @@ export default function UserKeysPage() {
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-slate-600">已启用</p>
+                <p className="text-sm text-slate-600">可用</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {userKeys.filter((k) => k.status === "active").length}
+                  {userKeys.filter((k) => k.status === "allocated").length}
                 </p>
               </div>
             </div>
@@ -131,7 +143,7 @@ export default function UserKeysPage() {
               <div>
                 <p className="text-sm text-slate-600">已禁用</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {userKeys.filter((k) => k.status === "inactive").length}
+                  {userKeys.filter((k) => k.status === "disabled").length}
                 </p>
               </div>
             </div>
@@ -193,8 +205,8 @@ export default function UserKeysPage() {
       {/* Keys 列表 */}
       <div className="space-y-6">
         {(filterProvider === "all"
-          ? mockProviders.filter((p) => userKeys.some((k) => k.provider_id === p.id))
-          : mockProviders.filter((p) => p.id === filterProvider)
+          ? providers.filter((p) => userKeys.some((k) => k.provider_id === p.id))
+          : providers.filter((p) => p.id === filterProvider)
         ).map((provider) => {
           const providerKeys = userKeys.filter((k) => k.provider_id === provider.id);
           if (providerKeys.length === 0) return null;
@@ -214,24 +226,24 @@ export default function UserKeysPage() {
                 {providerKeys.map((key) => (
                   <Card
                     key={key.id}
-                    className={key.status === "inactive" ? "opacity-60" : ""}
+                    className={key.status === "disabled" ? "opacity-60" : ""}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium truncate text-slate-900">
-                              {key.key_name}
+                              {key.key_mask}
                             </p>
-                            {key.status === "inactive" && (
+                            {key.status === "disabled" && (
                               <span className="text-xs text-slate-500">(已禁用)</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-slate-600 font-mono">
                               {revealedKey === key.id
-                                ? key.provider_key?.key_mask.replace("****", "xxxxxxxxxxxx")
-                                : key.provider_key?.key_mask}
+                                ? key.key_value
+                                : key.key_mask}
                             </p>
                             <button
                               onClick={() =>
@@ -246,47 +258,10 @@ export default function UserKeysPage() {
                               )}
                             </button>
                           </div>
-                          {key.provider_key?.usage_limit && (
-                            <div className="mt-2">
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <span className="text-slate-600">用量</span>
-                                <span className="text-slate-900">
-                                  {key.provider_key.current_usage.toLocaleString()} /{" "}
-                                  {key.provider_key.usage_limit.toLocaleString()} tokens
-                                </span>
-                              </div>
-                              <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                <div
-                                  className="bg-blue-500 h-1.5 rounded-full"
-                                  style={{
-                                    width: `${Math.min(
-                                      (key.provider_key.current_usage /
-                                        key.provider_key.usage_limit) *
-                                        100,
-                                      100
-                                    )}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          {key.provider_key?.last_used_at && (
-                            <p className="text-xs text-slate-500 mt-2">
-                              最后使用: {key.provider_key.last_used_at}
-                            </p>
-                          )}
+                          <p className="text-xs text-slate-500 mt-2">
+                            当前用量: {key.current_usage.toLocaleString()} tokens
+                          </p>
                         </div>
-                      </div>
-
-                      <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleToggleStatus(key.id)}
-                        >
-                          {key.status === "active" ? "禁用" : "启用"}
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
