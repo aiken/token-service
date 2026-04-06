@@ -69,6 +69,7 @@ export const onRequest: PagesFunction<{ DB: D1Database }> = async (context) => {
     return Response.json({ success: false, error: 'Method not allowed' }, { status: 405, headers });
   } catch (error) {
     console.error('API Error:', error);
-    return Response.json({ success: false, error: 'Internal server error' }, { status: 500, headers });
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    return Response.json({ success: false, error: errorMessage }, { status: 500, headers });
   }
 };

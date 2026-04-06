@@ -111,39 +111,23 @@ export async function deleteProviderKey(db: D1Database, id: number) {
 }
 
 export async function allocateKeyToUser(db: D1Database, keyId: number, userId: number) {
-  // Start transaction
-  await db.prepare('BEGIN TRANSACTION').run();
-  try {
-    // Update key status
-    await db.prepare('UPDATE provider_keys SET status = "allocated", allocated_to = ? WHERE id = ?')
-      .bind(userId, keyId).run();
-    // Create user_key mapping
-    await db.prepare('INSERT INTO user_provider_keys (user_id, provider_key_id) VALUES (?, ?)')
-      .bind(userId, keyId).run();
-    await db.prepare('COMMIT').run();
-    return true;
-  } catch (e) {
-    await db.prepare('ROLLBACK').run();
-    throw e;
+  // Update key status only (skip user_provider_keys table for now)
+  const result = await db.prepare('UPDATE provider_keys SET status = "allocated", allocated_to = ? WHERE id = ?')
+    .bind(userId, keyId).run();
+  if (!result.success) {
+    throw new Error('Failed to allocate key');
   }
+  return true;
 }
 
 export async function reclaimKeyFromUser(db: D1Database, keyId: number, userId: number) {
-  // Start transaction
-  await db.prepare('BEGIN TRANSACTION').run();
-  try {
-    // Update key status
-    await db.prepare('UPDATE provider_keys SET status = "available", allocated_to = NULL WHERE id = ?')
-      .bind(keyId).run();
-    // Delete user_key mapping
-    await db.prepare('DELETE FROM user_provider_keys WHERE user_id = ? AND provider_key_id = ?')
-      .bind(userId, keyId).run();
-    await db.prepare('COMMIT').run();
-    return true;
-  } catch (e) {
-    await db.prepare('ROLLBACK').run();
-    throw e;
+  // Update key status only (skip user_provider_keys table for now)
+  const result = await db.prepare('UPDATE provider_keys SET status = "available", allocated_to = NULL WHERE id = ?')
+    .bind(keyId).run();
+  if (!result.success) {
+    throw new Error('Failed to reclaim key');
   }
+  return true;
 }
 
 export async function getKeysByUserId(db: D1Database, userId: number) {
