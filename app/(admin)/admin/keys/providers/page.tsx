@@ -276,10 +276,8 @@ export default function ProvidersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {providers.map((provider) => {
           // 计算该提供方的真实统计
-          const numericId = providerIdMap[provider.id];
-          const providerKeyList = numericId 
-            ? providerKeys.filter(k => k.provider_id === numericId.toString())
-            : [];
+          // providerKeys 中的 provider_id 已经是 code 字符串
+          const providerKeyList = providerKeys.filter(k => k.provider_id === provider.id);
           const stats = {
             total: providerKeyList.length,
             available: providerKeyList.filter(k => k.status === 'available').length,
