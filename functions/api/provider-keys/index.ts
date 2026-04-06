@@ -24,7 +24,20 @@ export const onRequest: PagesFunction<{ DB: D1Database }> = async (context) => {
       const url = new URL(request.url);
       const providerId = url.searchParams.get('provider_id');
       const keys = await getProviderKeys(env.DB, providerId ? parseInt(providerId) : undefined);
-      return Response.json({ success: true, data: keys }, { headers });
+      
+      // Join with providers to get provider_code
+      const keysWithCode = await Promise.all(keys.map(async (key: Record<string, unknown>) => {
+        const provider = await env.DB
+          .prepare('SELECT code FROM providers WHERE id = ?')
+          .bind(key.provider_id)
+          .first() as { code: string } | null;
+        return {
+          ...key,
+          provider_id: provider?.code || String(key.provider_id),
+        };
+      }));
+      
+      return Response.json({ success: true, data: keysWithCode }, { headers });
     }
 
     if (request.method === 'POST') {
