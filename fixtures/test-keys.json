@@ -1,0 +1,23 @@
+{
+  "description": "开发测试 API Key 数据（仅用于本地开发）",
+  "provider_keys": [
+    {
+      "provider_code": "kimi",
+      "key_value": "sk-test-kimi-1234567890abcdef",
+      "key_mask": "sk-test-kimi-******cdef",
+      "status": "available"
+    },
+    {
+      "provider_code": "glm",
+      "key_value": "sk-test-glm-1234567890abcdef",
+      "key_mask": "sk-test-glm-******cdef",
+      "status": "available"
+    },
+    {
+      "provider_code": "claude",
+      "key_value": "sk-test-claude-1234567890abcdef",
+      "key_mask": "sk-test-claude-******cdef",
+      "status": "available"
+    }
+  ]
+}

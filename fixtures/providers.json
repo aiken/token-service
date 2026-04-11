@@ -1,0 +1,61 @@
+{
+  "description": "AI 服务提供商基础配置数据",
+  "providers": [
+    {
+      "id": 1,
+      "name": "Kimi (Moonshot)",
+      "code": "kimi",
+      "base_url": "https://api.moonshot.cn",
+      "status": "active",
+      "description": "月之暗面大模型 API"
+    },
+    {
+      "id": 2,
+      "name": "GLM (Zhipu AI)",
+      "code": "glm",
+      "base_url": "https://open.bigmodel.cn",
+      "status": "active",
+      "description": "智谱 AI 大模型 API"
+    },
+    {
+      "id": 3,
+      "name": "Claude (Anthropic)",
+      "code": "claude",
+      "base_url": "https://api.anthropic.com",
+      "status": "active",
+      "description": "Anthropic Claude API"
+    },
+    {
+      "id": 4,
+      "name": "OpenAI",
+      "code": "openai",
+      "base_url": "https://api.openai.com",
+      "status": "active",
+      "description": "OpenAI GPT API"
+    },
+    {
+      "id": 5,
+      "name": "Azure OpenAI",
+      "code": "azure",
+      "base_url": "https://api.azure.com",
+      "status": "active",
+      "description": "微软 Azure OpenAI API"
+    },
+    {
+      "id": 6,
+      "name": "Gemini",
+      "code": "gemini",
+      "base_url": "https://api.google.com",
+      "status": "active",
+      "description": "Google Gemini API"
+    },
+    {
+      "id": 7,
+      "name": "Seedance 2.0",
+      "code": "seedance",
+      "base_url": "https://api.seedance.ai",
+      "status": "active",
+      "description": "Seedance AI API"
+    }
+  ]
+}

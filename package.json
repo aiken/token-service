@@ -7,13 +7,34 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+
     "pages:build": "npx @cloudflare/next-on-pages",
     "pages:deploy": "npm run pages:build && wrangler pages deploy dist",
     "pages:dev": "npx @cloudflare/next-on-pages && wrangler pages dev dist",
+
+    "========== 数据库管理脚本 ==========": "",
+
     "db:migrate": "wrangler d1 execute token-service-db --file=./migrations/001_init.sql",
     "db:migrate:dev": "wrangler d1 execute token-service-db-dev --local --file=./migrations/001_init.sql",
-    "db:migrate:all": "wrangler d1 execute token-service-db-dev --local --file=./migrations/001_init.sql && wrangler d1 execute token-service-db-dev --local --file=./migrations/002_add_providers.sql && wrangler d1 execute token-service-db-dev --local --file=./migrations/003_add_company_fields.sql",
-    "db:migrate:prod": "wrangler d1 execute token-service-db --file=./migrations/001_init.sql && wrangler d1 execute token-service-db --file=./migrations/002_add_providers.sql",
+    "db:migrate:all": "npm run db:migrate:001 && npm run db:migrate:002 && npm run db:migrate:003",
+    "db:migrate:all:dev": "npm run db:migrate:001:dev && npm run db:migrate:002:dev && npm run db:migrate:003:dev",
+
+    "db:migrate:001": "wrangler d1 execute token-service-db --file=./migrations/001_init.sql",
+    "db:migrate:001:dev": "wrangler d1 execute token-service-db-dev --local --file=./migrations/001_init.sql",
+    "db:migrate:002": "wrangler d1 execute token-service-db --file=./migrations/002_add_providers.sql",
+    "db:migrate:002:dev": "wrangler d1 execute token-service-db-dev --local --file=./migrations/002_add_providers.sql",
+    "db:migrate:003": "wrangler d1 execute token-service-db --file=./migrations/003_add_company_fields.sql",
+    "db:migrate:003:dev": "wrangler d1 execute token-service-db-dev --local --file=./migrations/003_add_company_fields.sql",
+
+    "db:seed": "wrangler d1 execute token-service-db --file=./migrations/seed.sql",
+    "db:seed:dev": "wrangler d1 execute token-service-db-dev --local --file=./migrations/seed.sql",
+
+    "db:reset:dev": "npm run db:clean:dev && npm run db:migrate:all:dev && npm run db:seed:dev",
+    "db:clean:dev": "node scripts/clean-db.js",
+
+    "db:export:dev": "node scripts/export-db.js",
+    "db:import:dev": "node scripts/import-fixtures.js",
+
     "dev:cf": "npm run build && wrangler pages dev dist --compatibility-date=2024-01-01 --d1=DB"
   },
   "dependencies": {

@@ -42,6 +42,10 @@ next-env.d.ts
 
 # wrangler
 .wrangler/tmp/
+.wrangler/state/           # 本地 D1 数据库文件（环境相关，不提交）
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # build output (for Cloudflare Pages, dist is built fresh each time)
 /dist/_next/static/chunks/*.js
